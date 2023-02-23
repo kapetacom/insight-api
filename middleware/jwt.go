@@ -25,6 +25,7 @@ func Restricted() echo.MiddlewareFunc {
 				return echo.ErrUnauthorized
 			}
 			c.Set("jwt", token)
+			c.Set("jwt_raw", token.Raw)
 			return next(c)
 		}
 	}
