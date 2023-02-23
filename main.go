@@ -4,13 +4,16 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/blockwarecom/insight-api/handlers"
 	"github.com/blockwarecom/insight-api/middleware"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
+	mw "github.com/labstack/echo/v4/middleware"
 )
 
 func main() {
 	e := echo.New()
+	e.Use(mw.Logger())
 
 	host := os.Getenv("JWT_PUBLIC_KEY_HOST")
 	if host == "" {
@@ -31,6 +34,9 @@ func main() {
 	v1.Use(echojwt.WithConfig(config))
 	v1.Use(middleware.Restricted())
 
+	routes := handlers.NewRoutes()
+
+	v1.GET("/instances/:handle/:environment/:block/logs", routes.LogHandler)
 	// Start the service and log if the server fails to start/crashes
 	e.Logger.Fatal(e.Start(":1323"))
 }

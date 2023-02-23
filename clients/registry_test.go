@@ -42,12 +42,11 @@ func TestClient_GetRegistryCurrent(t *testing.T) {
 
 		// Create a new client with the mock server URL and test token
 		client := &Client{
-			ServerURL: server.URL,
-			Token:     "test_token",
+			RegistryServerURL: server.URL,
 		}
 
 		// Call the method to get the current version
-		version, err := client.GetRegistryCurrent("handle", "name")
+		version, err := client.GetRegistryCurrent("test_token", "handle", "name")
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 		}
