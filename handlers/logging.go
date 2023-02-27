@@ -61,7 +61,7 @@ func (h *Routes) LogHandler(c echo.Context) error {
 			if c.Request().Context().Err() != nil {
 				return nil
 			}
-			return echo.NewHTTPError(http.StatusInternalServerError, "failed to get next page of logs")
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get next page of logs: %v", err))
 		}
 		for _, entry := range entries {
 			le := LogEntry{

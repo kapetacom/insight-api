@@ -3,19 +3,20 @@ package handlers
 import (
 	"encoding/base64"
 	"os"
-
-	"github.com/blockwarecom/insight-api/clients"
 )
 
+type Client struct {
+	RegistryServerURL string
+	ServiceAccount    string
+}
+
 type Routes struct {
-	Clients *clients.Client
+	Clients *Client
 }
 
 func NewRoutes() *Routes {
 	handlers := &Routes{
-		Clients: &clients.Client{
-			RegistryServerURL: "http://localhost:5941",
-		},
+		Clients: &Client{},
 	}
 
 	if os.Getenv("REGISTRY_SERVER_URL") != "" {
