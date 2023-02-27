@@ -37,6 +37,8 @@ func main() {
 	routes := handlers.NewRoutes()
 
 	v1.GET("/instances/:handle/:environment/:block/logs", routes.LogHandler)
+	// The :handle and :environment aren't really used in this route, but they are required to match the API of the local cluster service
+	v1.GET("/instances/:handle/:environment/status", routes.GetEnvironmentStatus)
 	// Start the service and log if the server fails to start/crashes
 	e.Logger.Fatal(e.Start(":1323"))
 }

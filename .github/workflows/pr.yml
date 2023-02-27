@@ -16,6 +16,13 @@ jobs:
           cache: true
 
       - name: Install dependencies
+        env:
+          GOPRIVATE: github.com/blockwarecom/*
+      - name: Configure git for private modules
+        env:
+          TOKEN: ${{ secrets.BOT_TOKEN }}
+        run: git config --global url."https://blockware-bot:${TOKEN}@github.com".insteadOf "https://github.com"
+
         run: |
           # fail if go.mod and go.sum are out of sync
           go mod verify
