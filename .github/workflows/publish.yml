@@ -1,0 +1,54 @@
+name: Docker Publish
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - 'master'
+
+jobs:
+  build:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: europe-north1-docker.pkg.dev/bw-cloud-production/bw-cloud-production-docker-public/blockware/insight-api
+          flavor: latest=true
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+      - uses: google-github-actions/auth@v1
+        name: google auth
+        id: auth
+        with:
+          workload_identity_provider: ${{ secrets.GH_ACTION_WIF }}
+          service_account: ${{ secrets.DOCKER_WRITER_SA }}
+      - name: 'Set up Cloud SDK'
+        id: setup-gcloud
+        uses: 'google-github-actions/setup-gcloud@v1'
+
+      - name: 'Use gcloud CLI'
+        run: |
+          gcloud auth configure-docker europe-north1-docker.pkg.dev
+
+      - name: Build and push docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: ${{ github.ref_type == 'tag' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          network: host
+
+
