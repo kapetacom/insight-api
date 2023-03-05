@@ -39,7 +39,8 @@ func (h *Routes) LogHandler(c echo.Context) error {
 	instanceId := c.Param("instance")
 	deploymentHandle := c.Param("deploymentHandle")
 	deploymentName := c.Param("deploymentName")
-	deployment := deploymentHandle + "/" + deploymentName
+	// In labels "/" is not allowed - so it's seperated by "-" instead
+	deployment := deploymentHandle + "-" + deploymentName
 
 	client, err := logClient(c.Request().Context())
 	if err != nil {
