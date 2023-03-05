@@ -3,7 +3,6 @@ package main
 import (
 	"net/http"
 	"os"
-
 	"github.com/blockwarecom/insight-api/handlers"
 	"github.com/blockwarecom/insight-api/middleware"
 	echojwt "github.com/labstack/echo-jwt/v4"
@@ -36,9 +35,9 @@ func main() {
 
 	routes := handlers.NewRoutes()
 
-	v1.GET("/instances/:handle/:environment/:block/logs", routes.LogHandler)
+	v1.GET("/instances/:deploymentHandle/:deploymentName/:instance/logs", routes.LogHandler)
 	// The :handle and :environment aren't really used in this route, but they are required to match the API of the local cluster service
-	v1.GET("/instances/:handle/:environment/status", routes.GetEnvironmentStatus)
+	v1.GET("/status", routes.GetEnvironmentStatus)
 	// Start the service and log if the server fails to start/crashes
 	e.Logger.Fatal(e.Start(":1323"))
 }

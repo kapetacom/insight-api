@@ -26,7 +26,7 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error getting kubernetes config: %v\n", err)
 	}
-	pods, err := clientset.AppsV1().Deployments("default").List(context.Background(), metav1.ListOptions{})
+	pods, err := clientset.AppsV1().Deployments("services").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
 		return fmt.Errorf("error getting pods: %v\n", err)
 	}

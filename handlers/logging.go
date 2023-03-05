@@ -22,9 +22,9 @@ type LogEntry struct {
 	Message   string `json:"message"`
 }
 
-func logClient(ctx context.Context, serviceAccountFile []byte) (*logadmin.Client, error) {
+func logClient(ctx context.Context) (*logadmin.Client, error) {
 	// Read the service account file
-	creds, err := google.CredentialsFromJSON(ctx, serviceAccountFile, logging.ReadScope)
+	creds, err := google.FindDefaultCredentials(ctx, logging.ReadScope)
 	if err != nil {
 		return nil, echo.NewHTTPError(http.StatusForbidden, "failed to read service account file")
 	}
@@ -36,17 +36,19 @@ func logClient(ctx context.Context, serviceAccountFile []byte) (*logadmin.Client
 }
 
 func (h *Routes) LogHandler(c echo.Context) error {
-	handle := c.Param("handle")
-	environment := c.Param("environment")
-	blockName := c.Param("block")
+	instanceId := c.Param("instance")
+	deploymentHandle := c.Param("deploymentHandle")
+	deploymentName := c.Param("deploymentName")
+	deployment := deploymentHandle + "/" + deploymentName
 
-	client, err := logClient(c.Request().Context(), []byte(h.Clients.ServiceAccount))
+	client, err := logClient(c.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create log client")
 	}
 
-	clustername := handle + "-" + environment
-	filter := "resource.labels.container_name=\"" + blockName + "\" resource.labels.cluster_name=\"" + clustername + "\" resource.type=\"k8s_container\" AND log_id(\"stderr\") AND severity>=ERROR resource.labels.namespace_name=\"default\""
+	filter := "resource.labels.instance=\"" + instanceId + "\" " +
+				"resource.labels.deployment=\"" + deployment + "\" " +
+				"resource.type=\"k8s_container\""
 
 	it := client.Entries(c.Request().Context(), logadmin.Filter(filter), logadmin.NewestFirst())
 	pageToken := ""
@@ -57,7 +59,7 @@ func (h *Routes) LogHandler(c echo.Context) error {
 	for {
 		nextTok, err := iterator.NewPager(it, 100, pageToken).NextPage(&entries)
 		if err != nil {
-			// if contenxt is cancelled, we can ignore the error
+			// if context is cancelled, we can ignore the error
 			if c.Request().Context().Err() != nil {
 				return nil
 			}
