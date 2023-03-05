@@ -21,6 +21,7 @@ type PodResult struct {
 }
 
 func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
+	// TODO: Verify current user has access proper to this cluster
 
 	clientset, err := KubernetesClient()
 	if err != nil {

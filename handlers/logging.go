@@ -36,6 +36,7 @@ func logClient(ctx context.Context) (*logadmin.Client, error) {
 }
 
 func (h *Routes) LogHandler(c echo.Context) error {
+	// TODO: Verify current user has access proper to this deployment
 	instanceId := c.Param("instance")
 	deploymentHandle := c.Param("deploymentHandle")
 	deploymentName := c.Param("deploymentName")
@@ -47,8 +48,8 @@ func (h *Routes) LogHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "failed to create log client")
 	}
 
-	filter := "resource.labels.instance=\"" + instanceId + "\" " +
-				"resource.labels.deployment=\"" + deployment + "\" " +
+	filter := "labels.\"k8s-pod/instance\"=\"" + instanceId + "\" " +
+				"labels.\"k8s-pod/deployment\"=\"" + deployment + "\" " +
 				"resource.type=\"k8s_container\""
 
 	it := client.Entries(c.Request().Context(), logadmin.Filter(filter), logadmin.NewestFirst())
