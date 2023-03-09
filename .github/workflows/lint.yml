@@ -21,9 +21,12 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version-file: go.mod
+      - name: download dependencies
+        env:
+          GOPRIVATE: github.com/blockwarecom/*
+        run: go mod download
       - name: golangci-lint
         env:
           GOPRIVATE: github.com/blockwarecom/*
         uses: golangci/golangci-lint-action@v3.4.0
-        with:
-          version: v1.51.1
+
