@@ -9,6 +9,8 @@ import (
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/logging/logadmin"
+	"github.com/blockwarecom/insight-api/jwt"
+	"github.com/blockwarecom/insight-api/scopes"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
@@ -40,6 +42,11 @@ func (h *Routes) LogHandler(c echo.Context) error {
 	instanceId := c.Param("instance")
 	deploymentHandle := c.Param("deploymentHandle")
 	deploymentName := c.Param("deploymentName")
+
+	if !jwt.HasScopeForHandle(c, deploymentHandle, scopes.LOGGING_READ_SCOPE) {
+		return echo.NewHTTPError(http.StatusForbidden, "user does not have access to this deployment")
+	}
+
 	// In labels "/" is not allowed - so it's seperated by "-" instead
 	deployment := deploymentHandle + "-" + deploymentName
 
@@ -49,8 +56,8 @@ func (h *Routes) LogHandler(c echo.Context) error {
 	}
 
 	filter := "labels.\"k8s-pod/instance\"=\"" + instanceId + "\" " +
-				"labels.\"k8s-pod/deployment\"=\"" + deployment + "\" " +
-				"resource.type=\"k8s_container\""
+		"labels.\"k8s-pod/deployment\"=\"" + deployment + "\" " +
+		"resource.type=\"k8s_container\""
 
 	it := client.Entries(c.Request().Context(), logadmin.Filter(filter), logadmin.NewestFirst())
 	pageToken := ""

@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"os"
+
 	"github.com/blockwarecom/insight-api/handlers"
 	"github.com/blockwarecom/insight-api/middleware"
 	echojwt "github.com/labstack/echo-jwt/v4"
