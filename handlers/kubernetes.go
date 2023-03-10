@@ -4,7 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"os"
 
+	"github.com/blockwarecom/insight-api/jwt"
+	"github.com/blockwarecom/insight-api/scopes"
 	"github.com/labstack/echo/v4"
 	"github.com/mitchellh/go-homedir"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,7 +26,9 @@ type PodResult struct {
 
 func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	// TODO: Verify current user has access proper to this cluster
-
+	if !jwt.HasScopeForHandle(c, os.Getenv("BLOCKWARE_HANDLE"), scopes.RUNTIME_READ_SCOPE) {
+		return echo.NewHTTPError(http.StatusForbidden, "user does not have access to this deployment")
+	}
 	clientset, err := KubernetesClient()
 	if err != nil {
 		return fmt.Errorf("error getting kubernetes config: %v\n", err)
