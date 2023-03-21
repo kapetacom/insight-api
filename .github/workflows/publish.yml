@@ -18,29 +18,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
+      - name: Login to image repository
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v4
         with:
-          images: europe-north1-docker.pkg.dev/bw-cloud-production/bw-cloud-production-docker-public/blockware/insight-api
+          images: kapetacom/insight-api
           flavor: latest=true
           tags: |
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
-      - uses: google-github-actions/auth@v1
-        name: google auth
-        id: auth
-        with:
-          workload_identity_provider: ${{ secrets.GH_ACTION_WIF }}
-          service_account: ${{ secrets.DOCKER_WRITER_SA }}
-      - name: 'Set up Cloud SDK'
-        id: setup-gcloud
-        uses: 'google-github-actions/setup-gcloud@v1'
-
-      - name: 'Use gcloud CLI'
-        run: |
-          gcloud auth configure-docker europe-north1-docker.pkg.dev
 
       - name: Build and push docker image
         uses: docker/build-push-action@v3
@@ -51,4 +45,18 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           network: host
 
+      - name: checkout action
+        uses: actions/checkout@v3
+        with:
+          repository: blockwarecom/core-deploy-action
+          path: ./github-action/core-deploy-action
+          token: ${{ secrets.GHA_TOKEN }}
+
+      - name: deploy to Kapeta cloud
+        uses: ./github-action/core-deploy-action
+        env:
+          GITHUB_TOKEN: ${{ secrets.GHA_TOKEN }}
+        with:
+          image: kapetacom/insight-api
+            tag: ${{ github.sha }}
 
