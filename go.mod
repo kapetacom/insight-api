@@ -1,4 +1,4 @@
-module github.com/blockwarecom/insight-api
+module github.com/kapetacom/insight-api
 
 go 1.20
 

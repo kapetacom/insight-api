@@ -5,7 +5,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type BlockwareClaims struct {
+type KapetaClaims struct {
 	jwt.RegisteredClaims
 	AuthID   string    `json:"auth_id"`
 	AuthType string    `json:"auth_type"`
@@ -50,7 +50,7 @@ func validateScopes(token *jwt.Token, handle string, scope string) bool {
 
 func getScopesForHandle(token *jwt.Token, handle string) []string {
 	// Get the claims
-	claims := token.Claims.(*BlockwareClaims)
+	claims := token.Claims.(*KapetaClaims)
 	// Get the contexts
 	contexts := claims.Contexts
 	// Loop through the contexts

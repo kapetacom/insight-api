@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/blockwarecom/insight-api/scopes"
+	"github.com/kapetacom/insight-api/scopes"
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/stretchr/testify/assert"
 )
@@ -13,14 +13,14 @@ import (
 func TestHasScopeForHandle(t *testing.T) {
 	user := generateToken()
 	fmt.Println(user)
-	token, err := jwt.NewParser(jwt.WithoutClaimsValidation(), jwt.WithValidMethods([]string{"HS256"})).ParseWithClaims(user, &BlockwareClaims{}, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.NewParser(jwt.WithoutClaimsValidation(), jwt.WithValidMethods([]string{"HS256"})).ParseWithClaims(user, &KapetaClaims{}, func(token *jwt.Token) (interface{}, error) {
 		return []byte("secret"), nil
 	})
 	assert.NoError(t, err)
 	assert.NotNil(t, token)
-	hasAccess := validateScopes(token, "blockware", "*")
+	hasAccess := validateScopes(token, "kapeta", "*")
 	assert.True(t, hasAccess)
-	hasAccess = validateScopes(token, "blockware", "random")
+	hasAccess = validateScopes(token, "kapeta", "random")
 	assert.True(t, hasAccess)
 
 	hasAccess = validateScopes(token, "sorenmat_org", "*")
@@ -33,12 +33,12 @@ func TestHasScopeForHandle(t *testing.T) {
 func generateToken() string {
 	// Create claims while leaving out some of the optional fields
 	payload := `{
-			"iss": "https://auth.blockware.com",
+			"iss": "https://auth.kapeta.com",
 			"auth_id": "63f4681a5cd2424f153ac791",
 			"auth_type": "urn:ietf:params:oauth:grant-type:device_code",
 			"contexts": [
 			  {
-				"handle": "blockware",
+				"handle": "kapeta",
 				"id": "2e3d1573-07f5-4888-85d2-b6ad074b40a3",
 				"scopes": [
 				  "*"
@@ -56,7 +56,7 @@ func generateToken() string {
 			],
 			"exp": 1678375908,
 			"iat": 1678372308,
-			"iss": "https://auth.blockware.com",
+			"iss": "https://auth.kapeta.com",
 			"purpose": "access_token",
 			"scopes": [
 			  "offline",
@@ -65,7 +65,7 @@ func generateToken() string {
 			"sub": "1a2bb1be-3624-45e9-b15d-d6fb7081fb00",
 			"type": "user"
 		  }`
-	claims := BlockwareClaims{}
+	claims := KapetaClaims{}
 	err := json.Unmarshal([]byte(payload), &claims)
 	if err != nil {
 		panic(err)

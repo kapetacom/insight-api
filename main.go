@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/blockwarecom/insight-api/handlers"
-	"github.com/blockwarecom/insight-api/middleware"
+	"github.com/kapetacom/insight-api/handlers"
+	"github.com/kapetacom/insight-api/middleware"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	mw "github.com/labstack/echo/v4/middleware"

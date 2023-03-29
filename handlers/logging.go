@@ -9,8 +9,8 @@ import (
 
 	"cloud.google.com/go/logging"
 	"cloud.google.com/go/logging/logadmin"
-	"github.com/blockwarecom/insight-api/jwt"
-	"github.com/blockwarecom/insight-api/scopes"
+	"github.com/kapetacom/insight-api/jwt"
+	"github.com/kapetacom/insight-api/scopes"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
