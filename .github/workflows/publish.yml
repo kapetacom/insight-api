@@ -48,18 +48,4 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           network: host
 
-      - name: checkout action
-        uses: actions/checkout@v3
-        with:
-          repository: kapetacom/core-deploy-action
-          path: ./github-action/core-deploy-action
-          token: ${{ secrets.GHA_TOKEN }}
-
-      - name: deploy to Kapeta cloud
-        uses: ./github-action/core-deploy-action
-        env:
-          GITHUB_TOKEN: ${{ secrets.GHA_TOKEN }}
-        with:
-          image: kapetacom/insight-api
-          tag: ${{ github.sha }}
 
