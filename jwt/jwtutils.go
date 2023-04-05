@@ -1,6 +1,8 @@
 package jwt
 
 import (
+	"log"
+
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 )
@@ -50,17 +52,22 @@ func validateScopes(token *jwt.Token, handle string, scope string) bool {
 
 func getScopesForHandle(token *jwt.Token, handle string) []string {
 	// Get the claims
-	claims := token.Claims.(*KapetaClaims)
-	// Get the contexts
-	contexts := claims.Contexts
-	// Loop through the contexts
-	for _, ctx := range contexts {
-		// Check if the handle matches
-		if ctx.Handle == handle {
-			// Return the scopes
-			return ctx.Scopes
+	if claims, ok := token.Claims.(*KapetaClaims); ok && token.Valid {
+		// Get the contexts
+		contexts := claims.Contexts
+		// Loop through the contexts
+		for _, ctx := range contexts {
+			// Check if the handle matches
+			if ctx.Handle == handle {
+				// Return the scopes
+				return ctx.Scopes
+			}
 		}
 	}
+	// If we get here, we didn't find a matching handle
+	// let's output the claims to the log
+	log.Printf("Claims: %v", token.Claims)
+
 	// Return an empty list of scopes
 	return []string{}
 }
