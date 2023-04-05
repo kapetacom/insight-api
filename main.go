@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/kapetacom/insight-api/handlers"
+	kapetajwt "github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/middleware"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -29,6 +31,9 @@ func main() {
 	config := echojwt.Config{
 		// specify the function that returns the public key that will be used to verify the JWT
 		KeyFunc: middleware.FetchKey(host + "/.well-known/jwks.json"),
+		NewClaimsFunc: func(c echo.Context) jwt.Claims {
+			return &kapetajwt.KapetaClaims{}
+		},
 	}
 
 	e.GET("/healthz", func(c echo.Context) error {

@@ -27,7 +27,8 @@ type PodResult struct {
 func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	// TODO: Verify current user has access proper to this cluster
 	if !jwt.HasScopeForHandle(c, os.Getenv("KAPETA_HANDLE"), scopes.RUNTIME_READ_SCOPE) {
-		return echo.NewHTTPError(http.StatusForbidden, "user does not have access to this deployment")
+		return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf("user does not have access to this deployment, missing scope %v for %v", scopes.RUNTIME_READ_SCOPE, os.Getenv("KAPETA_HANDLE")))
+
 	}
 	clientset, err := KubernetesClient()
 	if err != nil {

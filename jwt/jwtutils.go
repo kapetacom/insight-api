@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"encoding/json"
 	"log"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -27,11 +28,13 @@ func HasScopeForHandle(c echo.Context, handle string, scope string) bool {
 	// Get the 'user' from the context, the user is set by the JWT middleware and is a *jwt.Token
 	user := c.Get("user")
 	if user == nil {
+		log.Println("user con the context is nil for handle: ", handle)
 		return false
 	}
 	token := user.(*jwt.Token)
 
 	if !token.Valid {
+		log.Println("token is not valid for handle: ", handle)
 		return false
 	}
 	return validateScopes(token, handle, scope)
@@ -40,7 +43,7 @@ func HasScopeForHandle(c echo.Context, handle string, scope string) bool {
 func validateScopes(token *jwt.Token, handle string, scope string) bool {
 	// Get the scopes for the handle
 	scopes := getScopesForHandle(token, handle)
-
+	log.Printf("%v has the following scopes: %v, and we are cheking for %v\n", handle, scopes, scope)
 	// Check if the scope is in the list of scopes
 	for _, s := range scopes {
 		if s == scope || s == "*" {
@@ -66,7 +69,8 @@ func getScopesForHandle(token *jwt.Token, handle string) []string {
 	}
 	// If we get here, we didn't find a matching handle
 	// let's output the claims to the log
-	log.Printf("Claims: %v", token.Claims)
+	d, _ := json.Marshal(token)
+	log.Printf("token: %v", string(d))
 
 	// Return an empty list of scopes
 	return []string{}

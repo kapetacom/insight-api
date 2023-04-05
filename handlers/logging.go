@@ -44,7 +44,7 @@ func (h *Routes) LogHandler(c echo.Context) error {
 	deploymentName := c.Param("deploymentName")
 
 	if !jwt.HasScopeForHandle(c, deploymentHandle, scopes.LOGGING_READ_SCOPE) {
-		return echo.NewHTTPError(http.StatusForbidden, "user does not have access to this deployment")
+		return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf("user does not have access to this deployment, missing scope %v for %v", scopes.LOGGING_READ_SCOPE, deploymentHandle))
 	}
 
 	// In labels "/" is not allowed - so it's seperated by "-" instead
