@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"os"
 
@@ -13,13 +14,18 @@ import (
 
 func main() {
 	e := echo.New()
-	e.Use(mw.Logger())
+
+	e.Use(mw.LoggerWithConfig(mw.LoggerConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.Request().URL.Path == "/healthz"
+		},
+	}))
 
 	host := os.Getenv("JWT_PUBLIC_KEY_HOST")
 	if host == "" {
 		host = "http://localhost:5940"
 	}
-
+	log.Println("Using JWT public key host: " + host)
 	config := echojwt.Config{
 		// specify the function that returns the public key that will be used to verify the JWT
 		KeyFunc: middleware.FetchKey(host + "/.well-known/jwks.json"),
