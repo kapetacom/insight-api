@@ -19,6 +19,7 @@ import (
 
 type PodResult struct {
 	Name            string `json:"name"`
+	BlockID         string `json:"blockId"`
 	State           string `json:"state"`
 	ReadyReplicas   int32  `json:"readyReplicas"`
 	DesiredReplicas int32  `json:"desiredReplicas"`
@@ -43,13 +44,13 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 		// Get the number of ready replicas and desired replicas
 		readyReplicas := deployment.Status.ReadyReplicas
 		desiredReplicas := *deployment.Spec.Replicas
-
+		blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/blockid"]
 		// Print the readiness status
 		if readyReplicas == desiredReplicas {
-			result = append(result, PodResult{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas})
+			result = append(result, PodResult{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		} else {
 			// not sure what to call this state yet
-			result = append(result, PodResult{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas})
+			result = append(result, PodResult{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		}
 	}
 	return c.JSON(200, result)
