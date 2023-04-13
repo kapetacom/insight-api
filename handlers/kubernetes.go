@@ -17,7 +17,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-type PodResult struct {
+type ClusterStatus struct {
+	Blocks             []BlockStatus `json:"blocksStatus"`
+	EnvironmentName    string        `json:"environmentName"`
+	EnvironmentVersion string        `json:"environmentVersion"`
+	PlanName           string        `json:"planName"`
+	PlanVersion        string        `json:"planVersion"`
+	TargetName         string        `json:"targetName"`
+	TargetVersion      string        `json:"targetVersion"`
+}
+
+type BlockStatus struct {
 	Name            string `json:"name"`
 	BlockID         string `json:"blockId"`
 	State           string `json:"state"`
@@ -39,7 +49,13 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error getting pods: %v\n", err)
 	}
-	result := []PodResult{}
+
+	clusterStatus, err := getEnvironmentInfo(context.Background(), clientset)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNotFound, err)
+	}
+
+	result := []BlockStatus{}
 	for _, deployment := range pods.Items {
 		// Get the number of ready replicas and desired replicas
 		readyReplicas := deployment.Status.ReadyReplicas
@@ -47,13 +63,44 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 		blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/blockid"]
 		// Print the readiness status
 		if readyReplicas == desiredReplicas {
-			result = append(result, PodResult{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
+			result = append(result, BlockStatus{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		} else {
 			// not sure what to call this state yet
-			result = append(result, PodResult{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
+			result = append(result, BlockStatus{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		}
 	}
-	return c.JSON(200, result)
+	clusterStatus.Blocks = result
+	return c.JSON(200, clusterStatus)
+}
+
+func getEnvironmentInfo(ctx context.Context, clientset *kubernetes.Clientset) (*ClusterStatus, error) {
+	// set the label selector for the secret
+	labelSelector := "kapeta.com/environment-name"
+
+	// get the secrets that match the label selector
+	secrets, err := clientset.CoreV1().Secrets("kapeta").List(ctx, metav1.ListOptions{
+		LabelSelector: labelSelector,
+	})
+	if err != nil {
+		panic(err.Error())
+	}
+
+	status := &ClusterStatus{}
+	if len(secrets.Items) > 0 {
+		secret := secrets.Items[0]
+		fmt.Printf("Secret name: %s\n", secret.ObjectMeta.Name)
+		status.EnvironmentName = secret.GetObjectMeta().GetLabels()["kapeta.com/environment-name"]
+		status.EnvironmentVersion = secret.GetObjectMeta().GetLabels()["kapeta.com/environment-version"]
+
+		status.PlanName = secret.GetObjectMeta().GetLabels()["kapeta.com/plan-name"]
+		status.PlanVersion = secret.GetObjectMeta().GetLabels()["kapeta.com/plan-version"]
+
+		status.TargetName = secret.GetObjectMeta().GetLabels()["kapeta.com/target-name"]
+		status.TargetVersion = secret.GetObjectMeta().GetLabels()["kapeta.com/target-version"]
+	} else {
+		return nil, fmt.Errorf("Not the corret number of secrets was expecting 1 got %v", len(secrets.Items))
+	}
+	return status, nil
 }
 
 // KubernetesClient returns a kubernetes client either from the cluster or from the local config if we are not running in a cluster
