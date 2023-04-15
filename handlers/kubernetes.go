@@ -60,7 +60,7 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 		// Get the number of ready replicas and desired replicas
 		readyReplicas := deployment.Status.ReadyReplicas
 		desiredReplicas := *deployment.Spec.Replicas
-		blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/blockid"]
+		blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/block-id"]
 		// Print the readiness status
 		if readyReplicas == desiredReplicas {
 			result = append(result, InstanceState{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
