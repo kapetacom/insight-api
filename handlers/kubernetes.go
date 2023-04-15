@@ -9,8 +9,6 @@ import (
 
 	"github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/scopes"
-	"github.com/labstack/echo/v4"
-	"github.com/mitchellh/go-homedir"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -18,18 +16,18 @@ import (
 )
 
 type ClusterStatus struct {
-	Blocks             []BlockStatus `json:"blocksStatus"`
-	EnvironmentName    string        `json:"environmentName"`
-	EnvironmentVersion string        `json:"environmentVersion"`
-	PlanName           string        `json:"planName"`
-	PlanVersion        string        `json:"planVersion"`
-	TargetName         string        `json:"targetName"`
-	TargetVersion      string        `json:"targetVersion"`
+	Instances          []InstanceState `json:"instanceStates"`
+	EnvironmentName    string          `json:"environmentName"`
+	EnvironmentVersion string          `json:"environmentVersion"`
+	PlanName           string          `json:"planName"`
+	PlanVersion        string          `json:"planVersion"`
+	TargetName         string          `json:"targetName"`
+	TargetVersion      string          `json:"targetVersion"`
 }
 
-type BlockStatus struct {
+type InstanceState struct {
 	Name            string `json:"name"`
-	BlockID         string `json:"blockId"`
+	BlockID         string `json:"instanceId"`
 	State           string `json:"state"`
 	ReadyReplicas   int32  `json:"readyReplicas"`
 	DesiredReplicas int32  `json:"desiredReplicas"`
@@ -55,7 +53,7 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusNotFound, err)
 	}
 
-	result := []BlockStatus{}
+	result := []InstanceState{}
 	for _, deployment := range pods.Items {
 		// Get the number of ready replicas and desired replicas
 		readyReplicas := deployment.Status.ReadyReplicas
@@ -63,13 +61,13 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 		blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/blockid"]
 		// Print the readiness status
 		if readyReplicas == desiredReplicas {
-			result = append(result, BlockStatus{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
+			result = append(result, InstanceState{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		} else {
 			// not sure what to call this state yet
-			result = append(result, BlockStatus{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
+			result = append(result, InstanceState{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		}
 	}
-	clusterStatus.Blocks = result
+	clusterStatus.Instances = result
 	return c.JSON(200, clusterStatus)
 }
 
