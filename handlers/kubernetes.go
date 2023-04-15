@@ -9,6 +9,8 @@ import (
 
 	"github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/scopes"
+	"github.com/labstack/echo/v4"
+	"github.com/mitchellh/go-homedir"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
