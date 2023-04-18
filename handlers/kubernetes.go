@@ -95,8 +95,8 @@ func getEnvironmentInfo(ctx context.Context, clientset *kubernetes.Clientset) (*
 		status.PlanName = secret.GetObjectMeta().GetLabels()["kapeta.com/plan-name"]
 		status.PlanVersion = secret.GetObjectMeta().GetLabels()["kapeta.com/plan-version"]
 
-		status.TargetName = secret.GetObjectMeta().GetLabels()["kapeta.com/target-name"]
-		status.TargetVersion = secret.GetObjectMeta().GetLabels()["kapeta.com/target-version"]
+		status.TargetName = secret.GetObjectMeta().GetLabels()["kapeta.com/deployment-target-name"]
+		status.TargetVersion = secret.GetObjectMeta().GetLabels()["kapeta.com/deployment-target-version"]
 	} else {
 		return nil, fmt.Errorf("Not the corret number of secrets was expecting 1 got %v", len(secrets.Items))
 	}
