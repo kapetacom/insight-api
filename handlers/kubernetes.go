@@ -9,7 +9,7 @@ import (
 	"github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/kubernetes"
 	"github.com/kapetacom/insight-api/model"
-	"github.com/kapetacom/insight-api/provider"
+	"github.com/kapetacom/insight-api/operators"
 	"github.com/kapetacom/insight-api/scopes"
 	"github.com/labstack/echo/v4"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -25,9 +25,9 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error getting kubernetes client: %v\n", err)
 	}
-	pods, err := clientset.AppsV1().Deployments("services").List(context.Background(), metav1.ListOptions{})
+	deployments, err := clientset.AppsV1().Deployments("services").List(context.Background(), metav1.ListOptions{})
 	if err != nil {
-		return fmt.Errorf("error getting pods: %v\n", err)
+		return fmt.Errorf("error getting deployments: %v\n", err)
 	}
 
 	clusterStatus, err := getEnvironmentInfo(context.Background())
@@ -36,7 +36,7 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	}
 
 	result := []model.InstanceState{}
-	for _, deployment := range pods.Items {
+	for _, deployment := range deployments.Items {
 		// Get the number of ready replicas and desired replicas
 		readyReplicas := deployment.Status.ReadyReplicas
 		desiredReplicas := *deployment.Spec.Replicas
@@ -49,11 +49,11 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 			result = append(result, model.InstanceState{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		}
 	}
-	providers, err := provider.GetDatabaseState(c.Request().Context())
+	providers, err := operators.GetDatabaseState(c.Request().Context())
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
-	clusterStatus.Providers = providers
+	clusterStatus.Operators = providers
 	clusterStatus.Instances = result
 	return c.JSON(200, clusterStatus)
 }
