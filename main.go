@@ -22,7 +22,9 @@ func main() {
 			return c.Request().URL.Path == "/healthz"
 		},
 	}))
-
+	if os.Getenv("KAPETA_HANDLE") == "" {
+		log.Fatal("KAPETA_HANDLE environment variable is not set")
+	}
 	host := os.Getenv("JWT_PUBLIC_KEY_HOST")
 	if host == "" {
 		host = "http://localhost:5940"

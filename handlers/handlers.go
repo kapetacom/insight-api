@@ -1,14 +1,10 @@
 package handlers
 
-
 type Routes struct {
-
 }
 
 func NewRoutes() *Routes {
-	handlers := &Routes{
-
-	}
+	handlers := &Routes{}
 
 	return handlers
 }
