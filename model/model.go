@@ -2,7 +2,7 @@ package model
 
 type ClusterStatus struct {
 	Instances          []InstanceState `json:"instanceStates"`
-	Providers          []ProviderState `json:"providerStates"`
+	Operators          []OperatorState `json:"operatorStates"`
 	EnvironmentName    string          `json:"environmentName"`
 	EnvironmentVersion string          `json:"environmentVersion"`
 	PlanName           string          `json:"planName"`
@@ -19,7 +19,7 @@ type InstanceState struct {
 	DesiredReplicas int32  `json:"desiredReplicas"`
 }
 
-type ProviderState struct {
+type OperatorState struct {
 	Name  string `json:"name"`
 	State string `json:"state"`
 }
