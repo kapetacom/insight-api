@@ -1,7 +1,13 @@
 FROM golang:1.20-alpine as app-builder
+
+ARG GITHUB_TOKEN
 WORKDIR /go/src/app
 COPY . .
 RUN apk add git
+
+ENV GOPRIVATE=github.com/kapetacom
+RUN echo "machine github.com login oauth password ${GITHUB_TOKEN}" > ~/.netrc
+
 # Static build required so that we can safely copy the binary over.
 RUN CGO_ENABLED=0 go build -ldflags '-extldflags "-static"' -o app
 

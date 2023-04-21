@@ -45,5 +45,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           network: host
+          build-args: |
+            GITHUB_TOKEN=${{ secrets.BOT_TOKEN }}
 
 
