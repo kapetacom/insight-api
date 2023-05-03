@@ -22,14 +22,17 @@ func main() {
 			return c.Request().URL.Path == "/healthz"
 		},
 	}))
+
 	if os.Getenv("KAPETA_HANDLE") == "" {
 		log.Fatal("KAPETA_HANDLE environment variable is not set")
 	}
+
 	host := os.Getenv("JWT_PUBLIC_KEY_HOST")
 	if host == "" {
 		host = "http://localhost:5940"
 	}
 	log.Println("Using JWT public key host: " + host)
+
 	config := echojwt.Config{
 		// specify the function that returns the public key that will be used to verify the JWT
 		KeyFunc: middleware.FetchKey(host + "/.well-known/jwks.json"),
