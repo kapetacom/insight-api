@@ -9,6 +9,7 @@ import (
 	"github.com/kapetacom/schemas/packages/go/model"
 	"github.com/mitchellh/go-homedir"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -54,6 +55,25 @@ func KubernetesClient() (*kubernetes.Clientset, error) {
 	}
 
 	kubectl, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return kubectl, nil
+}
+
+func DynamicKubernetesClient() (*dynamic.DynamicClient, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		log.Println("getting kubernetes config from local kubeconfig")
+		config, err = clientcmd.BuildConfigFromFlags("", home()+"/.kube/config")
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		log.Println("getting kubernetes config from cluster")
+	}
+
+	kubectl, err := dynamic.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
