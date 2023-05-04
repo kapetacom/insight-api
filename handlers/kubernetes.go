@@ -58,20 +58,21 @@ func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
-	clusterStatus.Operators = providers
-	clusterStatus.Instances = result
+
 	gateways, err := h.GetIngress(c)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err)
 	}
-	clusterStatus.Gateways = gateways
+
+	clusterStatus.Operators = providers
+	clusterStatus.Instances = append(result, gateways...)
 
 	return c.JSON(200, clusterStatus)
 }
 
 // GetIngress returns the status of the ingress routes, by querying the traefik api
-func (h *Routes) GetIngress(c echo.Context) ([]model.GatewayState, error) {
-	result := []model.GatewayState{}
+func (h *Routes) GetIngress(c echo.Context) ([]model.InstanceState, error) {
+	result := []model.InstanceState{}
 	apiHost := os.Getenv("API_HOST")
 	if apiHost == "" {
 		apiHost = "http://traefik-dashboard-service.infrastructure.svc.cluster.local:8080"
@@ -117,7 +118,12 @@ func (h *Routes) GetIngress(c echo.Context) ([]model.GatewayState, error) {
 				}
 				instanceId := ingress.GetObjectMeta().GetLabels()["kapeta.com/instanceid"]
 				apiPath := ingress.GetObjectMeta().GetAnnotations()["kapeta.com/api_path"]
-				result = append(result, model.GatewayState{Name: instanceId, Path: apiPath, Status: status})
+				result = append(result, model.InstanceState{
+					Name:     instanceId,
+					BlockID:  instanceId,
+					State:    status,
+					Metadata: map[string]string{"kapeta.com/api_path": apiPath},
+				})
 			}
 		}
 	}
