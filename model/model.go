@@ -3,7 +3,6 @@ package model
 type ClusterStatus struct {
 	Instances          []InstanceState `json:"instanceStates"`
 	Operators          []OperatorState `json:"operatorStates"`
-	Gateways           []GatewayState  `json:"gatewayStates"`
 	EnvironmentName    string          `json:"environmentName"`
 	EnvironmentVersion string          `json:"environmentVersion"`
 	PlanName           string          `json:"planName"`
@@ -13,22 +12,17 @@ type ClusterStatus struct {
 }
 
 type InstanceState struct {
-	Name            string `json:"name"`
-	BlockID         string `json:"instanceId"`
-	State           string `json:"state"`
-	ReadyReplicas   int32  `json:"readyReplicas"`
-	DesiredReplicas int32  `json:"desiredReplicas"`
+	Name            string            `json:"name"`
+	BlockID         string            `json:"instanceId"`
+	State           string            `json:"state"`
+	Metadata        map[string]string `json:"metadata"`
+	ReadyReplicas   int32             `json:"readyReplicas"`
+	DesiredReplicas int32             `json:"desiredReplicas"`
 }
 
 type OperatorState struct {
 	Name  string `json:"name"`
 	State string `json:"state"`
-}
-
-type GatewayState struct {
-	Name   string `json:"name"`
-	Path   string `json:"path"`
-	Status string `json:"status"`
 }
 
 type TraefikRoutes []struct {
