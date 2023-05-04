@@ -109,10 +109,10 @@ func (h *Routes) GetIngress(c echo.Context) ([]model.GatewayState, error) {
 				if err != nil {
 					return nil, fmt.Errorf("error getting service from Traefik: %v", err)
 				}
-				status := "UP"
+				status := "Ready"
 				for _, ready := range traefikService.ServerStatus {
 					if ready != "UP" {
-						status = "DOWN"
+						status = "Failed"
 					}
 				}
 				instanceId := ingress.GetObjectMeta().GetLabels()["kapeta.com/instanceid"]
