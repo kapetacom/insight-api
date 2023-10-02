@@ -1,4 +1,4 @@
-package operators
+package gcp
 
 import (
 	"context"
@@ -12,9 +12,10 @@ import (
 	"google.golang.org/api/option"
 	"google.golang.org/api/sqladmin/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	kube "k8s.io/client-go/kubernetes"
 )
 
-func GetDatabaseState(ctx context.Context) ([]model.OperatorState, error) {
+func GetDatabaseState(ctx context.Context, clientset *kube.Clientset) ([]model.OperatorState, error) {
 
 	deployment, err := kubernetes.GetDeployment(ctx)
 	if err != nil {
@@ -33,16 +34,16 @@ func GetDatabaseState(ctx context.Context) ([]model.OperatorState, error) {
 		case "kapeta/resource-type-postgresql":
 			states = append(states, getPostgresState(ctx, deployment.Metadata.Name, svc.Id, projectID))
 		case "kapeta/resource-type-mongodb":
-			states = append(states, getMongoDBState(svc.Id))
+			states = append(states, getMongoDBState(ctx, svc.Id))
 		}
 	}
 
 	return states, nil
 }
 
-func getMongoDBState(id string) model.OperatorState {
+func getMongoDBState(ctx context.Context, id string) model.OperatorState {
 	state := model.OperatorState{
-		Name:  id,
+		ID:    id,
 		State: "Failed",
 	}
 	clientset, err := kubernetes.KubernetesClient()
@@ -50,23 +51,30 @@ func getMongoDBState(id string) model.OperatorState {
 		log.Printf("error getting kubernetes client: %v\n", err)
 		return state
 	}
-	mongoDeployment, err := clientset.AppsV1().Deployments("infrastructure").Get(context.Background(), id, metav1.GetOptions{})
+	podList, err := clientset.AppsV1().Deployments("infrastructure").List(ctx, metav1.ListOptions{
+		LabelSelector: "kapeta.com/block-id=" + id,
+	})
 	if err != nil {
-		log.Printf("error getting deployment: %v\n", err)
+		log.Printf("error getting pods: %v\n", err)
 		return state
 	}
+	if len(podList.Items) == 0 {
+		log.Printf("no pods found with label kapeta.com/block-id=%s\n", id)
+		return state
+	}
+	mongoDeployment := podList.Items[0] //TODO: More than one pod?
 	readyReplicas := mongoDeployment.Status.ReadyReplicas
 	desiredReplicas := *mongoDeployment.Spec.Replicas
 	if readyReplicas == desiredReplicas {
 		state.State = "Ready"
 	}
-
+	state.Name = mongoDeployment.Name
 	return state
 }
 
 func getPostgresState(ctx context.Context, name string, id string, projectID string) model.OperatorState {
 	state := model.OperatorState{
-		Name:  id,
+		ID:    id,
 		State: "Failed",
 	}
 	sqlService, err := sqladmin.NewService(ctx, option.WithScopes())
@@ -91,7 +99,7 @@ func getPostgresState(ctx context.Context, name string, id string, projectID str
 			return state
 		}
 	}
-
+	state.Name = dbName
 	return state
 }
 

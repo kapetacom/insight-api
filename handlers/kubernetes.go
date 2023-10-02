@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/kapetacom/insight-api/jwt"
@@ -20,62 +21,64 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
-func (h *Routes) GetEnvironmentStatus(c echo.Context) error {
-	// TODO: Verify current user has access proper to this cluster
-	if !jwt.HasScopeForHandle(c, os.Getenv("KAPETA_HANDLE"), scopes.RUNTIME_READ_SCOPE) {
-		return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf("user does not have access to this deployment, missing scope %v for %v", scopes.RUNTIME_READ_SCOPE, os.Getenv("KAPETA_HANDLE")))
+func GetEnvironmentStatus(mode string) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		// TODO: Verify current user has access proper to this cluster
+		if !jwt.HasScopeForHandle(c, os.Getenv("KAPETA_HANDLE"), scopes.RUNTIME_READ_SCOPE) {
+			return echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf("user does not have access to this deployment, missing scope %v for %v", scopes.RUNTIME_READ_SCOPE, os.Getenv("KAPETA_HANDLE")))
 
-	}
-	clientset, err := kubernetes.KubernetesClient()
-	if err != nil {
-		return fmt.Errorf("error getting kubernetes client: %v", err)
-	}
-	deployments, err := clientset.AppsV1().Deployments("services").List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return fmt.Errorf("error getting deployments: %v", err)
-	}
-
-	clusterStatus, err := getEnvironmentInfo(context.Background())
-	if err != nil {
-		return echo.NewHTTPError(http.StatusNotFound, err)
-	}
-
-	result := []model.InstanceState{}
-	for _, deployment := range deployments.Items {
-		// Get the number of ready replicas and desired replicas
-		readyReplicas := deployment.Status.ReadyReplicas
-		desiredReplicas := *deployment.Spec.Replicas
-		blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/block-id"]
-		// Print the readiness status
-		if readyReplicas == desiredReplicas {
-			result = append(result, model.InstanceState{Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
-		} else {
-			// not sure what to call this state yet
-			result = append(result, model.InstanceState{Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
 		}
-	}
-	providers, err := operators.GetDatabaseState(c.Request().Context())
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
-	}
+		clientset, err := kubernetes.KubernetesClient()
+		if err != nil {
+			return fmt.Errorf("error getting kubernetes client: %v", err)
+		}
+		deployments, err := clientset.AppsV1().Deployments("services").List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return fmt.Errorf("error getting deployments: %v", err)
+		}
 
-	gateways, err := h.GetIngress(c)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err)
+		clusterStatus, err := getEnvironmentInfo(context.Background())
+		if err != nil {
+			return echo.NewHTTPError(http.StatusNotFound, err)
+		}
+
+		result := []model.InstanceState{}
+		for _, deployment := range deployments.Items {
+			// Get the number of ready replicas and desired replicas
+			readyReplicas := deployment.Status.ReadyReplicas
+			desiredReplicas := *deployment.Spec.Replicas
+			blockID := deployment.GetObjectMeta().GetLabels()["kapeta.com/block-id"]
+			// Print the readiness status
+			if readyReplicas == desiredReplicas {
+				result = append(result, model.InstanceState{Type: "block", Name: deployment.Name, State: "Ready", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
+			} else {
+				// not sure what to call this state yet
+				result = append(result, model.InstanceState{Type: "block", Name: deployment.Name, State: "Failed", ReadyReplicas: readyReplicas, DesiredReplicas: desiredReplicas, BlockID: blockID})
+			}
+		}
+		providers, err := operators.GetDatabaseState(c.Request().Context(), mode, clientset)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err)
+		}
+
+		gateways, err := GetIngress(c)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err)
+		}
+
+		clusterStatus.Operators = providers
+		clusterStatus.Instances = append(result, gateways...)
+
+		return c.JSON(200, clusterStatus)
 	}
-
-	clusterStatus.Operators = providers
-	clusterStatus.Instances = append(result, gateways...)
-
-	return c.JSON(200, clusterStatus)
 }
 
 // GetIngress returns the status of the ingress routes, by querying the traefik api
-func (h *Routes) GetIngress(c echo.Context) ([]model.InstanceState, error) {
+func GetIngress(c echo.Context) ([]model.InstanceState, error) {
 	result := []model.InstanceState{}
 	apiHost := os.Getenv("API_HOST")
 	if apiHost == "" {
-		apiHost = "http://traefik-dashboard-service.infrastructure.svc.cluster.local:8080"
+		apiHost = "http://traefik.traefik.svc.cluster.local:9000"
 	}
 	if !jwt.HasScopeForHandle(c, os.Getenv("KAPETA_HANDLE"), scopes.RUNTIME_READ_SCOPE) {
 		return nil, echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf("user does not have access to this deployment, missing scope %v for %v", scopes.RUNTIME_READ_SCOPE, os.Getenv("KAPETA_HANDLE")))
@@ -116,10 +119,12 @@ func (h *Routes) GetIngress(c echo.Context) ([]model.InstanceState, error) {
 						status = "Failed"
 					}
 				}
-				instanceId := ingress.GetObjectMeta().GetLabels()["kapeta.com/instanceid"]
-				apiPath := ingress.GetObjectMeta().GetAnnotations()["kapeta.com/api_path"]
+
+				instanceId := ingress.GetObjectMeta().GetLabels()["kapeta.com/block-id"]
+				apiPath := getPathFromRule(route.Rule)
 				result = append(result, model.InstanceState{
-					Name:     instanceId,
+					Type:     "gateway",
+					Name:     ingress.GetName(),
 					BlockID:  instanceId,
 					State:    status,
 					Metadata: map[string]string{"kapeta.com/api_path": apiPath},
@@ -128,6 +133,16 @@ func (h *Routes) GetIngress(c echo.Context) ([]model.InstanceState, error) {
 		}
 	}
 	return result, nil
+}
+func getPathFromRule(rule string) string {
+	pattern := `PathPrefix\(([^)]+)\)`
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(rule)
+	if len(matches) > 1 {
+		result := matches[1]
+		return strings.ReplaceAll(result, "`", "")
+	}
+	return ""
 }
 
 func getRoutes(apiHost string) (*model.TraefikRoutes, error) {
