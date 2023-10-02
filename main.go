@@ -8,6 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/kapetacom/insight-api/handlers"
 	kapetajwt "github.com/kapetacom/insight-api/jwt"
+	"github.com/kapetacom/insight-api/logging"
 	"github.com/kapetacom/insight-api/middleware"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
@@ -16,7 +17,7 @@ import (
 
 func main() {
 	e := echo.New()
-
+	e.Debug = true
 	e.Use(mw.LoggerWithConfig(mw.LoggerConfig{
 		Skipper: func(c echo.Context) bool {
 			return c.Request().URL.Path == "/healthz"
@@ -50,11 +51,16 @@ func main() {
 	v1.Use(echojwt.WithConfig(config))
 	v1.Use(middleware.Restricted())
 
-	routes := handlers.NewRoutes()
-
-	v1.GET("/instances/:deploymentHandle/:deploymentName/:instance/logs", routes.LogHandler)
+	mode := os.Getenv("KAPETA_RUNTIME_MODE")
+	if mode == "" {
+		mode = "kubernetes-only"
+	}
 	// The :handle and :environment aren't really used in this route, but they are required to match the API of the local cluster service
-	v1.GET("/status", routes.GetEnvironmentStatus)
+	v1.GET("/instances/:deploymentHandle/:deploymentName/:instance/logs", logging.LogHandler(mode))
+
+	v1.GET("/instances/:instance", logging.LogByInstanceID)
+	v1.GET("/instances/name/:name", logging.LogByInstanceName)
+	v1.GET("/status", handlers.GetEnvironmentStatus(mode))
 	// Start the service and log if the server fails to start/crashes
 	e.Logger.Fatal(e.Start(":1323"))
 }

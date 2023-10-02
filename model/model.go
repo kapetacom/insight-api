@@ -18,9 +18,11 @@ type InstanceState struct {
 	Metadata        map[string]string `json:"metadata"`
 	ReadyReplicas   int32             `json:"readyReplicas"`
 	DesiredReplicas int32             `json:"desiredReplicas"`
+	Type            string            `json:"type"`
 }
 
 type OperatorState struct {
+	ID    string `json:"id"`
 	Name  string `json:"name"`
 	State string `json:"state"`
 }

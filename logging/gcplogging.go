@@ -1,4 +1,4 @@
-package handlers
+package logging
 
 import (
 	"context"
@@ -37,7 +37,7 @@ func logClient(ctx context.Context) (*logadmin.Client, error) {
 	return client, err
 }
 
-func (h *Routes) LogHandler(c echo.Context) error {
+func GCPLogHandler(c echo.Context) error {
 	// TODO: Verify current user has access proper to this deployment
 	instanceId := c.Param("instance")
 	deploymentHandle := c.Param("deploymentHandle")
