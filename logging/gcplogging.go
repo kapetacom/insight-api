@@ -1,28 +1,20 @@
 package logging
 
 import (
+	"cloud.google.com/go/logging"
+	"cloud.google.com/go/logging/logadmin"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"time"
-
-	"cloud.google.com/go/logging"
-	"cloud.google.com/go/logging/logadmin"
 	"github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/scopes"
 	"github.com/labstack/echo/v4"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+	"net/http"
+	"strings"
 )
-
-type LogEntry struct {
-	Entity    string `json:"entity"`
-	Timestamp string `json:"timestamp"`
-	Severity  string `json:"severity"`
-	Message   string `json:"message"`
-}
 
 func logClient(ctx context.Context) (*logadmin.Client, error) {
 	// Read the service account file
@@ -62,11 +54,12 @@ func GCPLogHandler(c echo.Context) error {
 	it := client.Entries(c.Request().Context(), logadmin.Filter(filter), logadmin.NewestFirst())
 	pageToken := ""
 
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 	enc := json.NewEncoder(c.Response())
-	var entries []*logging.Entry
-
+	var gcpLogEntries []*logging.Entry
+	entries := make([]*LogEntry, 0)
 	for {
-		nextTok, err := iterator.NewPager(it, 100, pageToken).NextPage(&entries)
+		nextTok, err := iterator.NewPager(it, 100, pageToken).NextPage(&gcpLogEntries)
 		if err != nil {
 			// if context is cancelled, we can ignore the error
 			if c.Request().Context().Err() != nil {
@@ -74,23 +67,26 @@ func GCPLogHandler(c echo.Context) error {
 			}
 			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("failed to get next page of logs: %v", err))
 		}
-		for _, entry := range entries {
-			le := LogEntry{
-				Entity:    entry.Resource.Labels["container_name"],
-				Timestamp: entry.Timestamp.Format(time.StampMicro),
-				Severity:  entry.Severity.String(),
-				Message:   fmt.Sprintf("%v", entry.Payload),
+		for _, gcpLogEntry := range gcpLogEntries {
+			logEntry := LogEntry{
+				Entity:    gcpLogEntry.Resource.Labels["container_name"],
+				Timestamp: gcpLogEntry.Timestamp.UnixMilli(),
+				Severity:  strings.ToUpper(gcpLogEntry.Severity.String()),
+				Message:   fmt.Sprintf("%v", gcpLogEntry.Payload),
 			}
-			err = enc.Encode(le)
-			if err != nil {
-				return echo.NewHTTPError(http.StatusInternalServerError, "failed to encode log entry")
-			}
+			entries = append(entries, &logEntry)
 		}
+
 		c.Response().Flush()
 		if nextTok == "" {
 			break
 		}
 		pageToken = nextTok
+	}
+
+	err = enc.Encode(entries)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "failed to encode log output")
 	}
 	return nil
 }
