@@ -2,16 +2,16 @@ package logging
 
 import (
 	"bufio"
-	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"strings"
-
 	kapkube "github.com/kapetacom/insight-api/kubernetes"
 	"github.com/labstack/echo/v4"
+	"io"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"time"
 )
 
 func LogByInstanceID(c echo.Context) error {
@@ -27,6 +27,9 @@ func logBlockById(c echo.Context) error {
 	previous := c.QueryParam("previous") != ""
 	podName := c.Param("instance")
 	namespace := "services"
+	if c.QueryParam("namespace") != "" {
+		namespace = c.QueryParam("namespace")
+	}
 	ctx := c.Request().Context()
 
 	clientset, err := kapkube.KubernetesClient()
@@ -53,6 +56,10 @@ func logBlockByName(c echo.Context) error {
 	previous := c.QueryParam("previous") != ""
 	podName := c.Param("name")
 	namespace := "services"
+	if c.QueryParam("namespace") != "" {
+		namespace = c.QueryParam("namespace")
+	}
+
 	ctx := c.Request().Context()
 	clientset, err := kapkube.KubernetesClient()
 	if err != nil {
@@ -76,53 +83,55 @@ func writeLog(ctx context.Context, c echo.Context, podList *corev1.PodList, name
 	for _, pod := range podList.Items {
 		podName := pod.Name
 		req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{
-			Follow:   tail,
-			Previous: previous,
+			Follow:     tail,
+			Previous:   previous,
+			Timestamps: true,
 		})
 		readCloser, err := req.Stream(ctx)
 		if err != nil {
 			return fmt.Errorf("error opening stream to pod logs: %v", err)
 
 		}
-		defer readCloser.Close()
 
-		buf := make([]byte, 4096)
-		for {
-			n, err := readCloser.Read(buf)
+		defer func(readCloser io.ReadCloser) {
+			err := readCloser.Close()
 			if err != nil {
-				break
+				fmt.Printf("error closing stream to pod logs: %v", err)
 			}
-			_, err = c.Response().Writer.Write(prefixLine(buf[:n], podName+": "))
-			if err != nil {
-				return fmt.Errorf("error writing to response: %v", err)
+		}(readCloser)
+
+		c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		enc := json.NewEncoder(c.Response())
+
+		lineReader := bufio.NewScanner(readCloser)
+
+		entries := make([]*LogEntry, 0)
+
+		for lineReader.Scan() {
+			line := lineReader.Text()
+			// Split the line into timestamp and message
+			timestamp := line[0:30]
+			message := line[31:]
+
+			miliseconds := int64(0)
+			parsedTime, err := time.Parse(time.RFC3339, timestamp)
+			if err == nil {
+				miliseconds = parsedTime.UnixMilli()
 			}
+
+			logEntry := LogEntry{
+				Entity:    podName,
+				Severity:  "INFO",
+				Timestamp: miliseconds,
+				Message:   message,
+			}
+			entries = append(entries, &logEntry)
+		}
+
+		err = enc.Encode(entries)
+		if err != nil {
+			return fmt.Errorf("error writing to response: %v", err)
 		}
 	}
 	return nil
-}
-
-func prefixLine(buffer []byte, prefix string) []byte {
-
-	// Convert the byte buffer to a string
-	inputString := string(buffer)
-
-	// Split the input string into lines
-	scanner := bufio.NewScanner(strings.NewReader(inputString))
-
-	// Create a buffer to store the modified multiline string
-	var outputBuffer bytes.Buffer
-
-	// Iterate through each line and add the "test:" prefix
-	for scanner.Scan() {
-		line := scanner.Text()
-		modifiedLine := prefix + line + "\n"
-		outputBuffer.WriteString(modifiedLine)
-	}
-
-	if scanner.Err() != nil {
-		fmt.Println("Error:", scanner.Err())
-		return nil
-	}
-
-	return outputBuffer.Bytes()
 }

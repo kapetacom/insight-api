@@ -2,7 +2,8 @@ module github.com/kapetacom/insight-api
 
 go 1.21
 
-toolchain go1.21.3
+replace github.com/abbot/go-http-auth => github.com/containous/go-http-auth v0.4.1-0.20200324110947-a37a7636d23e
+replace github.com/go-check/check => github.com/go-check/check v1.0.1-0.20200227125254-8fa46927fbda
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
