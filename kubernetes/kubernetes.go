@@ -43,23 +43,25 @@ func GetDeployment(ctx context.Context) (*model.Deployment, error) {
 
 // KubernetesClient returns a kubernetes client either from the cluster or from the local config if we are not running in a cluster
 func KubernetesClient() (*kubernetes.Clientset, error) {
+	kubectl, err := kubernetes.NewForConfig(Config())
+	if err != nil {
+		return nil, err
+	}
+	return kubectl, nil
+}
+
+func Config() *rest.Config {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		log.Println("getting kubernetes config from local kubeconfig")
 		config, err = clientcmd.BuildConfigFromFlags("", home()+"/.kube/config")
 		if err != nil {
-			return nil, err
+			panic(err)
 		}
 	} else {
 		log.Println("getting kubernetes config from cluster")
 	}
-
-	kubectl, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
-
-	return kubectl, nil
+	return config
 }
 
 func DynamicKubernetesClient() (*dynamic.DynamicClient, error) {
