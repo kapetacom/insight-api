@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/kapetacom/insight-api/handlers"
 	kapetajwt "github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/logging"

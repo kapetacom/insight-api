@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/lestrrat-go/jwx/jwk"
 )
