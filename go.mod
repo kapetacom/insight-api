@@ -3,6 +3,7 @@ module github.com/kapetacom/insight-api
 go 1.21
 
 replace github.com/abbot/go-http-auth => github.com/containous/go-http-auth v0.4.1-0.20200324110947-a37a7636d23e
+
 replace github.com/go-check/check => github.com/go-check/check v1.0.1-0.20200227125254-8fa46927fbda
 
 require (
@@ -18,7 +19,6 @@ require (
 	github.com/traefik/traefik/v2 v2.10.6
 	golang.org/x/oauth2 v0.15.0
 	google.golang.org/api v0.152.0
-	istio.io/client-go v1.20.0
 	k8s.io/api v0.28.4
 	k8s.io/apimachinery v0.28.4
 	k8s.io/client-go v0.28.4
@@ -34,7 +34,7 @@ require (
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/go-acme/lego/v4 v4.14.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
@@ -95,7 +95,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	istio.io/api v1.20.0-beta.0.0.20231031143729-871b2914253f // indirect
 	k8s.io/apiextensions-apiserver v0.26.3 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230717233707-2695361300d9 // indirect
