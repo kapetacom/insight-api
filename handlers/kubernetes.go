@@ -2,12 +2,9 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
-	"regexp"
-	"strings"
 
 	"github.com/kapetacom/insight-api/jwt"
 	"github.com/kapetacom/insight-api/kubernetes"
@@ -15,10 +12,7 @@ import (
 	"github.com/kapetacom/insight-api/operators"
 	"github.com/kapetacom/insight-api/scopes"
 	"github.com/labstack/echo/v4"
-	traefik "github.com/traefik/traefik/v2/pkg/provider/kubernetes/crd/traefikio/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 )
 
 func GetEnvironmentStatus(mode string) echo.HandlerFunc {
@@ -43,6 +37,13 @@ func GetEnvironmentStatus(mode string) echo.HandlerFunc {
 		}
 
 		result := []model.InstanceState{}
+
+		gateways, err := GetIngress(c)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err)
+		}
+		clusterStatus.Instances = append(result, gateways...)
+
 		for _, deployment := range deployments.Items {
 			// Get the number of ready replicas and desired replicas
 			readyReplicas := deployment.Status.ReadyReplicas
@@ -60,14 +61,7 @@ func GetEnvironmentStatus(mode string) echo.HandlerFunc {
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err)
 		}
-
-		gateways, err := GetIngress(c)
-		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err)
-		}
-
 		clusterStatus.Operators = providers
-		clusterStatus.Instances = append(result, gateways...)
 
 		return c.JSON(200, clusterStatus)
 	}
@@ -76,114 +70,27 @@ func GetEnvironmentStatus(mode string) echo.HandlerFunc {
 // GetIngress returns the status of the ingress routes, by querying the traefik api
 func GetIngress(c echo.Context) ([]model.InstanceState, error) {
 	result := []model.InstanceState{}
-	apiHost := os.Getenv("API_HOST")
-	if apiHost == "" {
-		apiHost = "http://traefik.traefik.svc.cluster.local:9000"
-	}
+
 	if !jwt.HasScopeForHandle(c, os.Getenv("KAPETA_HANDLE"), scopes.RUNTIME_READ_SCOPE) {
 		return nil, echo.NewHTTPError(http.StatusForbidden, fmt.Sprintf("user does not have access to this deployment, missing scope %v for %v", scopes.RUNTIME_READ_SCOPE, os.Getenv("KAPETA_HANDLE")))
 	}
 
-	clientset, err := kubernetes.DynamicKubernetesClient()
+	virtualServices, err := kubernetes.GetVirtualService(c.Request().Context(), kubernetes.Config(), "services")
 	if err != nil {
-		return nil, fmt.Errorf("error getting kubernetes client: %v", err)
+		return nil, fmt.Errorf("error getting gateways: %v", err)
+	}
+	for _, vs := range virtualServices {
+		instanceId := vs.GetObjectMeta().GetLabels()["kapeta.com/block-id"]
+		result = append(result, model.InstanceState{
+			Type:     "gateway",
+			Name:     vs.GetName(),
+			BlockID:  instanceId,
+			State:    "Ready",
+			Metadata: map[string]string{"kapeta.com/api_path": vs.Spec.Http[0].Match[0].Uri.GetPrefix()},
+		})
 	}
 
-	ingressGVR := schema.GroupVersionResource{Group: "traefik.io", Version: "v1alpha1", Resource: "ingressroutes"}
-
-	ingressroutes, err := clientset.Resource(ingressGVR).Namespace("services").List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, fmt.Errorf("error getting ingress: %v", err)
-	}
-
-	for _, ingressItem := range ingressroutes.Items {
-
-		ingress, err := getIngressRoutes(ingressItem)
-		if err != nil {
-			return nil, fmt.Errorf("error marshalling ingress: %v", err)
-		}
-
-		traefikRoutes, err := getRoutes(apiHost)
-		if err != nil {
-			return nil, fmt.Errorf("error getting routes from Traefik: %v", err)
-		}
-		for _, route := range *traefikRoutes {
-			if strings.HasPrefix(route.Name, "services-"+ingress.GetName()) {
-				traefikService, err := getService(apiHost, route.Service)
-				if err != nil {
-					return nil, fmt.Errorf("error getting service from Traefik: %v", err)
-				}
-				status := "Ready"
-				for _, ready := range traefikService.ServerStatus {
-					if ready != "UP" {
-						status = "Failed"
-					}
-				}
-
-				instanceId := ingress.GetObjectMeta().GetLabels()["kapeta.com/block-id"]
-				apiPath := getPathFromRule(route.Rule)
-				result = append(result, model.InstanceState{
-					Type:     "gateway",
-					Name:     ingress.GetName(),
-					BlockID:  instanceId,
-					State:    status,
-					Metadata: map[string]string{"kapeta.com/api_path": apiPath},
-				})
-			}
-		}
-	}
 	return result, nil
-}
-func getPathFromRule(rule string) string {
-	pattern := `PathPrefix\(([^)]+)\)`
-	re := regexp.MustCompile(pattern)
-	matches := re.FindStringSubmatch(rule)
-	if len(matches) > 1 {
-		result := matches[1]
-		return strings.ReplaceAll(result, "`", "")
-	}
-	return ""
-}
-
-func getRoutes(apiHost string) (*model.TraefikRoutes, error) {
-	resp, err := http.Get(apiHost + "/api/http/routers")
-	if err != nil {
-		return nil, fmt.Errorf("error getting routers: %v", err)
-	}
-	traefikRoutes := &model.TraefikRoutes{}
-	err = json.NewDecoder(resp.Body).Decode(traefikRoutes)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding routers: %v", err)
-	}
-	return traefikRoutes, nil
-}
-
-func getService(apiHost string, serviceName string) (*model.TraefikService, error) {
-	url := apiHost + "/api/http/services/" + serviceName + "@kubernetescrd"
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("error getting routers: %v", err)
-	}
-	traefikService := &model.TraefikService{}
-	err = json.NewDecoder(resp.Body).Decode(traefikService)
-	if err != nil {
-		return nil, fmt.Errorf("error decoding routers: %v", err)
-	}
-	return traefikService, nil
-}
-
-func getIngressRoutes(item unstructured.Unstructured) (*traefik.IngressRoute, error) {
-	j, err := item.MarshalJSON()
-	if err != nil {
-		return nil, fmt.Errorf("error marshalling ingress: %v", err)
-	}
-
-	ingress := traefik.IngressRoute{}
-	err = json.Unmarshal(j, &ingress)
-	if err != nil {
-		return nil, fmt.Errorf("error unmarshalling ingress: %v", err)
-	}
-	return &ingress, nil
 }
 
 func getEnvironmentInfo(ctx context.Context) (*model.ClusterStatus, error) {
