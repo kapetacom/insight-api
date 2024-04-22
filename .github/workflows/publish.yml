@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+    tags:
+      - '*'
   pull_request:
     branches:
       - 'master'
@@ -36,6 +38,7 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,format=long,prefix=
+            type=ref,event=tag
 
       - name: Build and push docker image
         uses: docker/build-push-action@v3
