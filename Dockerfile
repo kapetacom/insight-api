@@ -1,4 +1,4 @@
-FROM golang:1.20-alpine as app-builder
+FROM golang:1.22-alpine as app-builder
 
 ARG GITHUB_TOKEN
 WORKDIR /go/src/app

@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"time"
+
 	kapkube "github.com/kapetacom/insight-api/kubernetes"
 	"github.com/labstack/echo/v4"
-	"io"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"time"
 )
 
 func LogByInstanceID(c echo.Context) error {
@@ -26,6 +27,10 @@ func logBlockById(c echo.Context) error {
 	tail := c.QueryParam("tail") != ""
 	previous := c.QueryParam("previous") != ""
 	podName := c.Param("instance")
+	container := c.QueryParam("container")
+	if container == "" {
+		container = "main"
+	}
 	namespace := "services"
 	if c.QueryParam("namespace") != "" {
 		namespace = c.QueryParam("namespace")
@@ -48,13 +53,17 @@ func logBlockById(c echo.Context) error {
 		return fmt.Errorf("no pods found with label kapeta.com/block-id=%s", podName)
 
 	}
-	return writeLog(ctx, c, podList, namespace, clientset, tail, previous)
+	return writeLog(ctx, c, podList, namespace, clientset, tail, previous, container)
 }
 
 func logBlockByName(c echo.Context) error {
 	tail := c.QueryParam("tail") != ""
 	previous := c.QueryParam("previous") != ""
 	podName := c.Param("name")
+	container := c.QueryParam("container")
+	if container == "" {
+		container = "main"
+	}
 	namespace := "services"
 	if c.QueryParam("namespace") != "" {
 		namespace = c.QueryParam("namespace")
@@ -76,19 +85,21 @@ func logBlockByName(c echo.Context) error {
 	if len(podList.Items) == 0 {
 		return fmt.Errorf("no pods found with label instance=%s", podName)
 	}
-	return writeLog(ctx, c, podList, namespace, clientset, tail, previous)
+	return writeLog(ctx, c, podList, namespace, clientset, tail, previous, container)
 }
 
-func writeLog(ctx context.Context, c echo.Context, podList *corev1.PodList, namespace string, clientset *kubernetes.Clientset, tail bool, previous bool) error {
+func writeLog(ctx context.Context, c echo.Context, podList *corev1.PodList, namespace string, clientset *kubernetes.Clientset, tail bool, previous bool, container string) error {
 	for _, pod := range podList.Items {
 		podName := pod.Name
 		req := clientset.CoreV1().Pods(namespace).GetLogs(podName, &corev1.PodLogOptions{
 			Follow:     tail,
 			Previous:   previous,
 			Timestamps: true,
+			Container:  container,
 		})
 		readCloser, err := req.Stream(ctx)
 		if err != nil {
+			writeErrorToClient(*json.NewEncoder(c.Response()), err)
 			return fmt.Errorf("error opening stream to pod logs: %v", err)
 
 		}
@@ -96,6 +107,7 @@ func writeLog(ctx context.Context, c echo.Context, podList *corev1.PodList, name
 		defer func(readCloser io.ReadCloser) {
 			err := readCloser.Close()
 			if err != nil {
+				writeErrorToClient(*json.NewEncoder(c.Response()), err)
 				fmt.Printf("error closing stream to pod logs: %v", err)
 			}
 		}(readCloser)
@@ -134,4 +146,18 @@ func writeLog(ctx context.Context, c echo.Context, podList *corev1.PodList, name
 		}
 	}
 	return nil
+}
+
+func writeErrorToClient(enc json.Encoder, err error) {
+	logEntry := LogEntry{
+		Entity:    "system",
+		Severity:  "ERROR",
+		Timestamp: time.Now().UnixMilli(),
+		Message:   err.Error(),
+	}
+	entries := make([]*LogEntry, 0)
+	entries = append(entries, &logEntry)
+	// Write the error to the client
+	// if we can't write the error to the client, we can't do anything else
+	_ = enc.Encode(entries)
 }
